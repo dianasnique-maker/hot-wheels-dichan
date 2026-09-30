@@ -11,7 +11,7 @@ create table if not exists public.cars (
   price text default 'Consultar',
   year text default '',
   number text default '',
-  desc text default '',
+  description text default '',
   status text not null default 'Disponible' check (status in ('Disponible','Vendido')),
   whatsapp text default '',
   image_url text,
@@ -92,7 +92,7 @@ to authenticated
 using (bucket_id = 'hot-wheels');
 
 -- Datos iniciales. Se insertan solo si la tabla está vacía.
-insert into public.cars (name, series, category, price, year, number, desc, status)
+insert into public.cars (name, series, category, price, year, number, description, status)
 select * from (values
 ('Maserati Tipo 61','Hot Wheels','Colección','S/ 15','2026','','Modelo negro · pieza de colección','Disponible'),
 ('Porsche Carrera ''96','Hot Wheels','Colección','S/ 15','2026','','Rojo · Porsche Carrera ''96','Disponible'),
