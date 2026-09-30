@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hot Wheels — DiChan</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0b0d;color:#f4f4f4;font-family:Arial,Helvetica,sans-serif}
+header{background:linear-gradient(135deg,#090909,#300000);padding:28px 18px;text-align:center;border-bottom:1px solid #3b1616}
+h1{margin:0;font-size:clamp(28px,6vw,48px);letter-spacing:2px}header p{color:#aaa;margin:8px 0 0}
+nav{display:flex;justify-content:center;gap:8px;padding:12px;background:#111}
+nav button,.btn{border:1px solid #333;background:#191919;color:#fff;border-radius:10px;padding:10px 15px;cursor:pointer}
+nav button.active,.btn.primary{background:#d71920;border-color:#d71920}
+main{max-width:1200px;margin:auto;padding:20px}.toolbar{display:grid;grid-template-columns:1fr 180px 180px;gap:10px;margin-bottom:20px}
+input,select,textarea{width:100%;padding:11px;border-radius:9px;border:1px solid #333;background:#151518;color:#fff}
+textarea{min-height:90px;resize:vertical}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.card{background:#151518;border:1px solid #29292d;border-radius:14px;overflow:hidden;box-shadow:0 8px 25px #0005}.photo{height:220px;background:#0d0d0f;display:flex;align-items:center;justify-content:center}.photo img{width:100%;height:100%;object-fit:contain}
+.card-body{padding:14px}.tag{font-size:12px;color:#ff5b61;text-transform:uppercase}.card h3{margin:6px 0}.meta{font-size:13px;color:#aaa;line-height:1.6}.price{font-size:20px;font-weight:bold;margin:10px 0}.sold{opacity:.65}.wa{display:block;text-align:center;background:#25d366;color:#061b0b;text-decoration:none;font-weight:bold;padding:10px;border-radius:9px}
+.panel{max-width:700px;margin:0 auto;background:#151518;padding:20px;border-radius:14px;border:1px solid #29292d}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.full{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.hidden{display:none}.muted{color:#999}.admin-card{margin-top:12px;padding:12px;border:1px solid #29292d;border-radius:10px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+@media(max-width:700px){.toolbar,.form-grid{grid-template-columns:1fr}.full{grid-column:auto}.photo{height:190px}}
+</style>
+</head>
+<body>
+<header><h1>HOT WHEELS DiChan</h1><p>Catálogo para coleccionistas · venta directa</p></header>
+<nav><button id="tabCatalog" class="active">🏎️ Catálogo</button><button id="tabAdmin">⚙️ Administrar</button></nav>
+
+<main>
+<section id="catalog">
+<div class="toolbar">
+<input id="search" placeholder="Buscar modelo, serie o número...">
+<select id="statusFilter"><option value="">Todos los estados</option><option>Disponible</option><option>Vendido</option></select>
+<select id="categoryFilter"><option value="">Todas las categorías</option></select>
+</div>
+<div id="grid" class="grid"></div>
+<p id="empty" class="muted hidden">No se encontraron modelos.</p>
+</section>
+
+<section id="admin" class="hidden">
+<div id="loginPanel" class="panel">
+<h2>Administrar catálogo</h2><p class="muted">Inicia sesión para agregar, editar o eliminar modelos.</p>
+<input id="email" type="email" placeholder="Correo">
+<input id="password" type="password" placeholder="Contraseña" style="margin-top:8px">
+<div class="actions"><button class="btn primary" id="login">Ingresar</button></div>
+<p id="loginMsg" class="muted"></p>
+</div>
+
+<div id="adminPanel" class="panel hidden">
+<div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2 id="formTitle">Agregar modelo</h2><button class="btn" id="logout">Cerrar sesión</button></div>
+<div class="form-grid">
+<input id="name" placeholder="Nombre del modelo">
+<input id="series" placeholder="Serie">
+<input id="category" placeholder="Categoría">
+<input id="price" placeholder="Precio (ej. S/ 20)">
+<input id="year" placeholder="Año">
+<input id="number" placeholder="Número de colección">
+<textarea id="desc" class="full" placeholder="Descripción"></textarea>
+<input id="whatsapp" class="full" placeholder="WhatsApp con código de país, ej. 51999999999">
+<select id="status"><option>Disponible</option><option>Vendido</option></select>
+<input id="photo" class="full" type="file" accept="image/*">
+</div>
+<div class="actions"><button class="btn primary" id="save">Guardar modelo</button><button class="btn" id="cancel">Limpiar</button></div>
+<p id="adminMsg" class="muted"></p>
+<hr style="border-color:#29292d;margin:24px 0">
+<h3>Modelos registrados</h3><div id="adminList"></div>
+</div>
+</section>
+</main>
+
+<script>
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let cars=[],editingId=null,currentImagePath=null;
+
+const $=id=>document.getElementById(id);
+function esc(v=''){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function showTab(which){
+ $('catalog').classList.toggle('hidden',which!=='catalog'); $('admin').classList.toggle('hidden',which!=='admin');
+ $('tabCatalog').classList.toggle('active',which==='catalog'); $('tabAdmin').classList.toggle('active',which==='admin');
+}
+$('tabCatalog').onclick=()=>showTab('catalog'); $('tabAdmin').onclick=()=>showTab('admin');
+
+async function loadCars(){
+ const {data,error}=await sb.from('cars').select('*').order('created_at',{ascending:false});
+ if(error){$('grid').innerHTML='<p>No se pudo cargar el catálogo. Revisa la configuración de Supabase.</p>';console.error(error);return}
+ cars=data||[];renderFilters();render();
+}
+function renderFilters(){
+ const old=$('categoryFilter').value; const cats=[...new Set(cars.map(c=>c.category).filter(Boolean))].sort();
+ $('categoryFilter').innerHTML='<option value="">Todas las categorías</option>'+cats.map(c=>'<option>'+esc(c)+'</option>').join('');
+ $('categoryFilter').value=cats.includes(old)?old:'';
+}
+function render(){
+ const q=$('search').value.toLowerCase().trim(), st=$('statusFilter').value, cat=$('categoryFilter').value;
+ const list=cars.filter(c=>(!q||[c.name,c.series,c.category,c.number,c.desc].join(' ').toLowerCase().includes(q))&&(!st||c.status===st)&&(!cat||c.category===cat));
+ $('empty').classList.toggle('hidden',list.length!==0);
+ $('grid').innerHTML=list.map(c=>{
+   const sold=c.status==='Vendido';
+   const img=c.image_url?'<img src="'+esc(c.image_url)+'" alt="'+esc(c.name)+'">':'<span class="muted">Sin foto</span>';
+   const wa=c.whatsapp?'<a class="wa" target="_blank" rel="noopener" href="https://wa.me/'+encodeURIComponent(c.whatsapp)+'?text='+encodeURIComponent('Hola, me interesa el Hot Wheels '+c.name+'.')+'">Consultar por WhatsApp</a>':'';
+   return '<article class="card '+(sold?'sold':'')+'"><div class="photo">'+img+'</div><div class="card-body"><div class="tag">'+esc(c.category||'Colección')+'</div><h3>'+esc(c.name)+'</h3><div class="meta">'+esc(c.series||'')+(c.year?' · '+esc(c.year):'')+(c.number?' · Nº '+esc(c.number):'')+'</div><div class="price">'+esc(c.price||'Consultar')+'</div><div class="meta">'+esc(c.desc||'')+'</div>'+(!sold?'<div style="margin-top:12px">'+wa+'</div>':'<div class="muted" style="margin-top:12px">Vendido</div>')+'</div></article>';
+ }).join('');
+}
+['search','statusFilter','categoryFilter'].forEach(id=>$(id).addEventListener('input',render));
+
+async function checkSession(){
+ const {data:{session}}=await sb.auth.getSession();
+ $('loginPanel').classList.toggle('hidden',!!session); $('adminPanel').classList.toggle('hidden',!session);
+ if(session) renderAdmin();
+}
+$('login').onclick=async()=>{
+ const {error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+ $('loginMsg').textContent=error?error.message:'';
+ if(!error)checkSession();
+};
+$('logout').onclick=async()=>{await sb.auth.signOut();checkSession()};
+sb.auth.onAuthStateChange(()=>checkSession());
+
+function resetForm(){
+ editingId=null;currentImagePath=null;$('formTitle').textContent='Agregar modelo';
+ ['name','series','category','price','year','number','desc','whatsapp','photo'].forEach(id=>$(id).value='');
+ $('status').value='Disponible';$('adminMsg').textContent='';
+}
+$('cancel').onclick=resetForm;
+
+async function uploadPhoto(file){
+ if(!file)return null;
+ const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+ const path=Date.now()+'-'+crypto.randomUUID()+'.'+ext;
+ const {error}=await sb.storage.from('hot-wheels').upload(path,file,{upsert:false,contentType:file.type});
+ if(error)throw error;
+ const {data}=sb.storage.from('hot-wheels').getPublicUrl(path);
+ return {url:data.publicUrl,path};
+}
+$('save').onclick=async()=>{
+ try{
+  const name=$('name').value.trim(); if(!name){alert('Escribe el nombre del modelo.');return}
+  $('adminMsg').textContent='Guardando...';
+  let image_url=null,image_path=currentImagePath;
+  if($('photo').files[0]){const up=await uploadPhoto($('photo').files[0]);image_url=up.url;image_path=up.path}
+  else if(editingId){const old=cars.find(c=>c.id===editingId);image_url=old?.image_url||null}
+  const obj={name,series:$('series').value.trim(),category:$('category').value.trim()||'Colección',price:$('price').value.trim()||'Consultar',year:$('year').value.trim(),number:$('number').value.trim(),desc:$('desc').value.trim(),status:$('status').value,whatsapp:$('whatsapp').value.trim(),image_url,image_path};
+  let res;
+  if(editingId)res=await sb.from('cars').update(obj).eq('id',editingId);else res=await sb.from('cars').insert(obj);
+  if(res.error)throw res.error;
+  $('adminMsg').textContent='Guardado correctamente.';resetForm();await loadCars();renderAdmin();
+ }catch(e){console.error(e);$('adminMsg').textContent='Error: '+e.message}
+};
+function renderAdmin(){
+ $('adminList').innerHTML=cars.map(c=>'<div class="admin-card"><div><b>'+esc(c.name)+'</b><div class="muted">'+esc(c.category)+' · '+esc(c.status)+'</div></div><div class="actions"><button class="btn" onclick="editCar(\''+c.id+'\')">Editar</button><button class="btn" onclick="deleteCar(\''+c.id+'\')">Eliminar</button></div></div>').join('');
+}
+window.editCar=id=>{
+ const c=cars.find(x=>x.id===id);if(!c)return;editingId=id;currentImagePath=c.image_path||null;
+ ['name','series','category','price','year','number','desc','whatsapp'].forEach(k=>$(k).value=c[k]||'');
+ $('status').value=c.status||'Disponible';$('formTitle').textContent='Editar modelo';window.scrollTo({top:0,behavior:'smooth'});
+};
+window.deleteCar=async id=>{
+ if(!confirm('¿Eliminar este modelo?'))return;
+ const c=cars.find(x=>x.id===id);
+ const {error}=await sb.from('cars').delete().eq('id',id);if(error){alert(error.message);return}
+ if(c?.image_path)await sb.storage.from('hot-wheels').remove([c.image_path]);
+ await loadCars();renderAdmin();
+};
+(async()=>{await loadCars();await checkSession()})();
+</script>
+</body>
+</html>
