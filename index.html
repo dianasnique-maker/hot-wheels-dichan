@@ -93,14 +93,12 @@ function renderFilters(){
 }
 function openWhatsApp(event,phone,text){
   event.preventDefault();
-  const cleanPhone=decodeURIComponent(phone).replace(/\\D/g,'');
+  const cleanPhone=decodeURIComponent(phone).replace(/\D/g,'');
   const message=decodeURIComponent(text);
-  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const url=isMobile
-    ? 'https://wa.me/'+cleanPhone+'?text='+encodeURIComponent(message)
-    : 'https://web.whatsapp.com/send?phone='+cleanPhone+'&text='+encodeURIComponent(message);
-  window.open(url,'_blank','noopener');
+  const url='https://web.whatsapp.com/send?phone='+cleanPhone+'&text='+encodeURIComponent(message);
+  window.location.href=url;
 }
+
 function render(){
  const q=$('search').value.toLowerCase().trim(), st=$('statusFilter').value, cat=$('categoryFilter').value;
  const list=cars.filter(c=>(!q||[c.name,c.series,c.category,c.number,c.description].join(' ').toLowerCase().includes(q))&&(!st||c.status===st)&&(!cat||c.category===cat));
