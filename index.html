@@ -91,14 +91,6 @@ function renderFilters(){
  $('categoryFilter').innerHTML='<option value="">Todas las categorías</option>'+cats.map(c=>'<option>'+esc(c)+'</option>').join('');
  $('categoryFilter').value=cats.includes(old)?old:'';
 }
-function openWhatsApp(event,phone,text){
-  event.preventDefault();
-  const cleanPhone=decodeURIComponent(phone).replace(/\D/g,'');
-  const message=decodeURIComponent(text);
-  const url='https://web.whatsapp.com/send?phone='+cleanPhone+'&text='+encodeURIComponent(message);
-  window.location.href=url;
-}
-
 function render(){
  const q=$('search').value.toLowerCase().trim(), st=$('statusFilter').value, cat=$('categoryFilter').value;
  const list=cars.filter(c=>(!q||[c.name,c.series,c.category,c.number,c.description].join(' ').toLowerCase().includes(q))&&(!st||c.status===st)&&(!cat||c.category===cat));
@@ -106,7 +98,9 @@ function render(){
  $('grid').innerHTML=list.map(c=>{
    const sold=c.status==='Vendido';
    const img=c.image_url?'<img src="'+esc(c.image_url)+'" alt="'+esc(c.name)+'">':'<span class="muted">Sin foto</span>';
-   const wa=c.whatsapp?'<a class="wa" href="#" onclick="openWhatsApp(event,\''+encodeURIComponent(c.whatsapp)+'\',\''+encodeURIComponent('Hola, me interesa el Hot Wheels '+c.name+'.')+'\')">💬 Consultar por WhatsApp</a>':'';
+   const phone=(c.whatsapp||'').replace(/\\D/g,'');
+   const msg=encodeURIComponent('Hola, me interesa el Hot Wheels '+c.name+'.');
+   const wa=phone?'<a class="wa" target="_blank" rel="noopener noreferrer" href="https://web.whatsapp.com/send?phone='+phone+'&text='+msg+'">💬 Consultar por WhatsApp</a>':'';
    return '<article class="card '+(sold?'sold':'')+'"><div class="photo">'+img+'</div><div class="card-body"><div class="tag">'+esc(c.category||'Colección')+'</div><h3>'+esc(c.name)+'</h3><div class="meta">'+esc(c.series||'')+(c.year?' · '+esc(c.year):'')+(c.number?' · Nº '+esc(c.number):'')+'</div><div class="price">'+esc(c.price||'Consultar')+'</div><div class="meta">'+esc(c.description||'')+'</div>'+(!sold?'<div style="margin-top:12px">'+wa+'</div>':'<div class="muted" style="margin-top:12px">Vendido</div>')+'</div></article>';
  }).join('');
 }
