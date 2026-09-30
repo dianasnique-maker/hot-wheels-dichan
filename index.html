@@ -98,9 +98,9 @@ function render(){
  $('grid').innerHTML=list.map(c=>{
    const sold=c.status==='Vendido';
    const img=c.image_url?'<img src="'+esc(c.image_url)+'" alt="'+esc(c.name)+'">':'<span class="muted">Sin foto</span>';
-   const phone=(c.whatsapp||'').replace(/\\D/g,'');
+   const phone=(c.whatsapp||'').replace(/\D/g,'');
    const msg=encodeURIComponent('Hola, me interesa el Hot Wheels '+c.name+'.');
-   const wa=phone?'<a class="wa" target="_blank" rel="noopener noreferrer" href="https://web.whatsapp.com/send?phone='+phone+'&text='+msg+'">💬 Consultar por WhatsApp</a>':'';
+   const wa=phone?'<a class="wa" href="https://web.whatsapp.com/send/?phone='+phone+'&text='+msg+'&type=phone_number&app_absent=0'>💬 Consultar por WhatsApp</a>':'';
    return '<article class="card '+(sold?'sold':'')+'"><div class="photo">'+img+'</div><div class="card-body"><div class="tag">'+esc(c.category||'Colección')+'</div><h3>'+esc(c.name)+'</h3><div class="meta">'+esc(c.series||'')+(c.year?' · '+esc(c.year):'')+(c.number?' · Nº '+esc(c.number):'')+'</div><div class="price">'+esc(c.price||'Consultar')+'</div><div class="meta">'+esc(c.description||'')+'</div>'+(!sold?'<div style="margin-top:12px">'+wa+'</div>':'<div class="muted" style="margin-top:12px">Vendido</div>')+'</div></article>';
  }).join('');
 }
